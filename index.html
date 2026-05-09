@@ -1,0 +1,141 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>AUDIO VISUALIZER v3.14</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@500;700&family=Share+Tech+Mono&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="./styles.css" />
+  <script src="https://cdn.jsdelivr.net/npm/jsmediatags@3.9.7/dist/jsmediatags.min.js"></script>
+</head>
+<body>
+  <div class="stage">
+    <!-- HEADER -->
+    <header class="hud-header">
+      <img class="hud-logo" src="./assets/logovis.png" alt="Audio Visualizer v3.14" />
+      <div class="clock-frame">
+        <span class="bracket bracket-tl"></span>
+        <span class="bracket bracket-tr"></span>
+        <span class="bracket bracket-bl"></span>
+        <span class="bracket bracket-br"></span>
+        <span class="clock" id="clock">00:00:00</span>
+      </div>
+    </header>
+
+    <!-- FREQUENCY SPECTRUM -->
+    <section class="panel panel-spectrum" data-panel="spectrum">
+      <span class="bracket bracket-tl"></span>
+      <span class="bracket bracket-tr"></span>
+      <span class="bracket bracket-bl"></span>
+      <span class="bracket bracket-br"></span>
+      <h2 class="panel-title">FREQUENCY SPECTRUM</h2>
+      <div class="legend">
+        <span class="legend-item"><i class="dot dot-cyan"></i>dB</span>
+        <span class="legend-item"><i class="dot dot-magenta"></i>-6</span>
+        <span class="legend-item"><i class="dot dot-amber"></i>-48</span>
+      </div>
+      <canvas class="panel-canvas" data-canvas="spectrum"></canvas>
+    </section>
+
+    <!-- AMPLITUDE HISTOGRAM -->
+    <section class="panel panel-histogram" data-panel="histogram">
+      <span class="bracket bracket-tl"></span>
+      <span class="bracket bracket-tr"></span>
+      <span class="bracket bracket-bl"></span>
+      <span class="bracket bracket-br"></span>
+      <h2 class="panel-title">AMPLITUDE HISTOGRAM</h2>
+      <canvas class="panel-canvas" data-canvas="histogram"></canvas>
+    </section>
+
+    <!-- WAVEFORM SYNC -->
+    <section class="panel panel-waveform" data-panel="waveform">
+      <span class="bracket bracket-tl"></span>
+      <span class="bracket bracket-tr"></span>
+      <span class="bracket bracket-bl"></span>
+      <span class="bracket bracket-br"></span>
+      <h2 class="panel-title">WAVEFORM SYNC</h2>
+      <canvas class="panel-canvas" data-canvas="waveform"></canvas>
+    </section>
+
+    <!-- AUDIO ROUTING -->
+    <section class="panel panel-routing" data-panel="routing">
+      <span class="bracket bracket-tl"></span>
+      <span class="bracket bracket-tr"></span>
+      <span class="bracket bracket-bl"></span>
+      <span class="bracket bracket-br"></span>
+      <h2 class="panel-title">AUDIO ROUTING</h2>
+      <div class="status-list">
+        <span class="status-line"><i class="status-dot" data-status="0"></i>BASS</span>
+        <span class="status-line"><i class="status-dot" data-status="1"></i>MIDS</span>
+        <span class="status-line"><i class="status-dot" data-status="2"></i>HIGH</span>
+      </div>
+      <span class="panel-caption">CENTER&nbsp;HEX&nbsp;=&nbsp;BASS &nbsp;·&nbsp; INNER&nbsp;RING&nbsp;=&nbsp;MIDS &nbsp;·&nbsp; OUTER&nbsp;=&nbsp;HIGHS</span>
+      <canvas class="panel-canvas" data-canvas="routing"></canvas>
+    </section>
+
+    <!-- CENTER REACTIVE FIELD -->
+    <section class="panel-center" data-panel="center">
+      <canvas class="panel-canvas" data-canvas="center"></canvas>
+      <span class="center-title">SPECTRAL FIELD</span>
+      <span class="center-caption">FFT-DRIVEN PARTICLE RING &nbsp;·&nbsp; RADIUS = BASS &nbsp;·&nbsp; HUE = HIGHS</span>
+      <span class="data-label data-tl">
+        <span class="data-key">PEAK</span>
+        <span class="data-value" id="data-peak">--.- dB</span>
+      </span>
+      <span class="data-label data-tr">
+        <span class="data-key">F0</span>
+        <span class="data-value" id="data-f0">---- Hz</span>
+      </span>
+      <span class="data-label data-tr2">
+        <span class="data-key">FFT</span>
+        <span class="data-value" id="data-fft">2048 / 1024</span>
+      </span>
+      <span class="data-label data-bl">
+        <span class="data-key">STEREO</span>
+        <span class="data-value" id="data-stereo">L &middot; R</span>
+      </span>
+      <span class="data-label data-br">
+        <span class="data-key">RMS</span>
+        <span class="data-value" id="data-rms">0.00</span>
+      </span>
+    </section>
+
+    <!-- INFO BAR -->
+    <footer class="info-bar">
+      <span class="bracket bracket-tl"></span>
+      <span class="bracket bracket-tr"></span>
+      <span class="bracket bracket-bl"></span>
+      <span class="bracket bracket-br"></span>
+      <div class="info-row">
+        <div class="info-cell"><span class="info-label">TRACK:</span><span class="info-value" id="info-track">— DROP AN AUDIO FILE —</span></div>
+        <div class="info-cell"><span class="info-label">VOLUME:</span><span class="info-value" id="info-volume">78%</span></div>
+      </div>
+      <div class="info-row">
+        <div class="info-cell"><span class="info-label">ARTIST:</span><span class="info-value" id="info-artist">AETHER SYNC</span></div>
+        <div class="info-cell"><span class="info-label">EQ:</span><span class="info-value" id="info-eq">ACTIVE</span></div>
+      </div>
+      <div class="info-row">
+        <div class="info-cell"><span class="info-label">ELAPSED:</span><span class="info-value" id="info-elapsed">00:00 / 00:00</span></div>
+        <div class="info-cell"><span class="info-label">BPM:</span><span class="info-value" id="info-bpm">---</span></div>
+        <div class="info-cell"><span class="info-label">MODE:</span><span class="info-value clickable" id="info-mode">AMBIENT PULSE</span></div>
+      </div>
+    </footer>
+
+    <!-- DROP OVERLAY -->
+    <div class="drop-overlay" id="drop-overlay">
+      <div class="drop-overlay-inner">
+        <div class="drop-icon">◇</div>
+        <div class="drop-text">DROP AUDIO FILE TO LOAD</div>
+      </div>
+    </div>
+
+    <!-- HIDDEN AUDIO + FILE INPUT -->
+    <audio id="audio-element" preload="auto"></audio>
+    <input id="file-input" type="file" accept="audio/*" hidden />
+  </div>
+
+  <script type="module" src="./src/main.js"></script>
+</body>
+</html>
