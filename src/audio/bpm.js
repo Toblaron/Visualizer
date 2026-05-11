@@ -83,6 +83,27 @@ export class BpmEstimator {
     return this.ema === null ? null : Math.round(this.ema);
   }
 
+  // 0..1: low interval variance = high confidence. Needs ≥4 peaks.
+  get confidence() {
+    if (this.peaks.length < 4) return 0;
+    const intervals = [];
+    for (let i = 1; i < this.peaks.length; i++) intervals.push(this.peaks[i] - this.peaks[i - 1]);
+    const mean = intervals.reduce((a, b) => a + b, 0) / intervals.length;
+    const variance = intervals.reduce((a, b) => a + (b - mean) ** 2, 0) / intervals.length;
+    const cv = Math.sqrt(variance) / (mean || 1); // coefficient of variation
+    return Math.max(0, Math.min(1, 1 - cv * 2));
+  }
+
+  // Inject a known BPM from tap-tempo or external source
+  forceBpm(bpm) {
+    this.reset();
+    const period = 60000 / bpm;
+    const now = performance.now();
+    for (let i = 0; i < 8; i++) this.peaks.push(now - period * (8 - i));
+    this.totalBeats = this.peaks.length;
+    this.ema = bpm;
+  }
+
   reset() {
     this.samples.length = 0;
     this.peaks.length = 0;

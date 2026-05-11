@@ -39,8 +39,8 @@ body {
 
 .stage {
   position: relative;
-  width: min(100vw, calc(100vh * 16 / 9));
-  aspect-ratio: 16 / 9;
+  width: 100vw;
+  height: 100vh;
   background:
     linear-gradient(180deg, #07112a 0%, #050a18 60%, #03060f 100%);
   background-image:
@@ -92,18 +92,179 @@ body {
 .clock-frame {
   position: absolute;
   left: 50%;
-  bottom: 4px;
+  bottom: 6px;
   transform: translateX(-50%);
-  padding: 4px 22px 5px 22px;
+  padding: 6px 22px 7px 22px;
   font-family: 'Share Tech Mono', monospace;
-  font-size: 28px;
-  letter-spacing: 0.12em;
   color: var(--cyan);
   text-shadow: 0 0 6px rgba(34, 230, 255, 0.6);
+  display: flex;
+  align-items: center;
 }
 
-.clock {
+.track-progress {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 13px;
+  letter-spacing: 0.10em;
+}
+
+.track-time {
+  min-width: 44px;
+  text-align: center;
+  color: var(--cyan);
+  transition: color 0.08s linear, text-shadow 0.08s linear;
+}
+
+.track-time-total {
+  color: var(--text-dim);
+  text-shadow: none;
+}
+
+.track-progress.beat-flash .track-time-elapsed {
+  color: #fff;
+  text-shadow: 0 0 14px var(--cyan), 0 0 6px var(--magenta);
+}
+
+.track-progress-bar {
+  position: relative;
+  width: 360px;
+  height: 6px;
+  background: rgba(34, 230, 255, 0.12);
+  border: 1px solid rgba(34, 230, 255, 0.25);
+  cursor: pointer;
+  user-select: none;
+}
+
+.track-progress-bar .bar-fill {
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 0%;
+  background: linear-gradient(90deg,
+    rgba(34, 230, 255, 0.55) 0%,
+    rgba(255, 58, 214, 0.85) 100%);
+  box-shadow: 0 0 8px rgba(34, 230, 255, 0.5);
+  pointer-events: none;
+}
+
+.track-progress-bar .bar-handle {
+  position: absolute;
+  top: 50%;
+  left: 0%;
+  width: 8px;
+  height: 14px;
+  margin-left: -4px;
+  background: var(--cyan);
+  box-shadow: 0 0 8px var(--cyan);
+  transform: translateY(-50%);
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.15s linear;
+}
+
+.track-progress-bar:hover .bar-handle,
+.track-progress-bar.dragging .bar-handle {
+  opacity: 1;
+}
+
+.track-progress-bar.disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
+/* ============== TRANSPORT + LOAD ============== */
+.transport {
+  position: absolute;
+  right: 14px;
+  top: 50%;
+  transform: translateY(-50%);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  z-index: 10;
+}
+
+.tp-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  background: rgba(8, 16, 36, 0.55);
+  border: 1px solid rgba(34, 230, 255, 0.25);
+  color: var(--cyan);
+  font-family: 'Share Tech Mono', monospace;
+  font-size: 14px;
+  cursor: pointer;
+  user-select: none;
+  text-shadow: 0 0 6px rgba(34, 230, 255, 0.4);
+  transition: background 0.12s linear, color 0.12s linear, border-color 0.12s linear;
+  padding: 0;
+  line-height: 1;
+}
+
+.tp-btn:hover {
+  background: rgba(34, 230, 255, 0.10);
+  color: #fff;
+  border-color: var(--cyan);
+}
+
+.tp-btn:active,
+.tp-btn.active {
+  background: rgba(255, 58, 214, 0.12);
+  color: var(--magenta);
+  border-color: var(--magenta);
+}
+
+.tp-btn:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+
+.load-btn {
   display: inline-block;
+  background: rgba(8, 16, 36, 0.55);
+  border: 1px solid rgba(34, 230, 255, 0.25);
+  color: var(--cyan);
+  font-family: 'Orbitron', sans-serif;
+  font-weight: 500;
+  font-size: 11px;
+  letter-spacing: 0.22em;
+  padding: 8px 18px;
+  cursor: pointer;
+  user-select: none;
+  text-shadow: 0 0 6px rgba(34, 230, 255, 0.4);
+  transition: background 0.12s linear, color 0.12s linear, border-color 0.12s linear;
+}
+
+.load-btn-text { pointer-events: none; }
+
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+  opacity: 0;
+}
+
+.load-btn:hover {
+  background: rgba(34, 230, 255, 0.10);
+  color: #fff;
+  border-color: var(--cyan);
+}
+
+.load-btn:active {
+  background: rgba(255, 58, 214, 0.10);
+  color: var(--magenta);
+  border-color: var(--magenta);
 }
 
 /* ============== PANELS ============== */
@@ -348,12 +509,124 @@ body {
 
 /* ============== INFO BAR ============== */
 .info-bar {
+  position: relative;
   display: grid;
   grid-template-rows: repeat(3, 1fr);
   align-items: center;
   font-size: 14px;
   letter-spacing: 0.05em;
   border: 1px solid rgba(34, 230, 255, 0.12);
+}
+
+/* Click-to-seek strip across the top of the info bar */
+.seek-bar {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 3px;
+  background: rgba(34, 230, 255, 0.08);
+  cursor: pointer;
+  z-index: 5;
+}
+
+.seek-bar:hover {
+  height: 5px;
+  background: rgba(34, 230, 255, 0.14);
+}
+
+.seek-bar .bar-fill {
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: 0%;
+  background: linear-gradient(90deg, var(--cyan), var(--magenta));
+  box-shadow: 0 0 6px rgba(34, 230, 255, 0.5);
+  pointer-events: none;
+}
+
+.seek-bar .bar-handle {
+  position: absolute;
+  top: 50%;
+  left: 0%;
+  transform: translate(-50%, -50%);
+  width: 8px;
+  height: 8px;
+  background: var(--cyan);
+  border-radius: 50%;
+  box-shadow: 0 0 8px var(--cyan);
+  opacity: 0;
+  transition: opacity 0.12s linear;
+  pointer-events: none;
+}
+
+.seek-bar:hover .bar-handle,
+.seek-bar.dragging .bar-handle {
+  opacity: 1;
+}
+
+.seek-bar.disabled {
+  cursor: not-allowed;
+  opacity: 0.4;
+}
+
+/* Volume slider in the info-bar volume cell */
+.info-cell-volume { gap: 12px; }
+
+.volume-bar {
+  position: relative;
+  flex: 1;
+  min-width: 80px;
+  max-width: 220px;
+  height: 16px;
+  background: rgba(8, 16, 36, 0.55);
+  border: 1px solid rgba(34, 230, 255, 0.20);
+  cursor: pointer;
+  user-select: none;
+}
+
+.volume-bar:hover {
+  border-color: rgba(34, 230, 255, 0.45);
+}
+
+.volume-bar .bar-fill {
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: 78%;
+  background: linear-gradient(90deg, rgba(34, 230, 255, 0.55), rgba(255, 58, 214, 0.55));
+  pointer-events: none;
+  transition: width 0.05s linear;
+}
+
+.volume-bar .bar-text {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: 'Share Tech Mono', monospace;
+  font-size: 11px;
+  letter-spacing: 0.10em;
+  color: var(--text);
+  text-shadow: 0 0 4px rgba(0, 0, 0, 0.7);
+  pointer-events: none;
+  z-index: 1;
+}
+
+.volume-bar.muted .bar-fill {
+  background: linear-gradient(90deg, rgba(255, 58, 214, 0.40), rgba(255, 58, 214, 0.20));
+}
+
+.info-label.clickable {
+  cursor: pointer;
+  transition: color 0.12s linear;
+}
+
+.info-label.clickable:hover {
+  color: var(--cyan);
+}
+
+.info-label.clickable.muted {
+  color: var(--amber);
 }
 
 .info-row {
@@ -445,3 +718,223 @@ body {
 
 /* ============== UTILITY ============== */
 .clickable { cursor: pointer; }
+
+/* ============== OVERVIEW WAVEFORM ============== */
+.overview-canvas {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  opacity: 0.55;
+}
+/* Make the bar-fill semi-transparent so overview shows through */
+.track-progress-bar .bar-fill {
+  opacity: 0.55;
+}
+
+/* ============== GENRE CHIPS ============== */
+.genre-cell {
+  min-width: 0;
+  overflow: hidden;
+}
+
+.genre-tags {
+  display: flex;
+  flex-wrap: nowrap;
+  gap: 5px;
+  overflow: hidden;
+  align-items: center;
+  min-width: 0;
+}
+
+.genre-chip {
+  display: inline-block;
+  padding: 1px 7px;
+  border: 1px solid rgba(34, 230, 255, 0.40);
+  background: rgba(34, 230, 255, 0.07);
+  color: var(--cyan);
+  font-family: 'Share Tech Mono', monospace;
+  font-size: 10px;
+  letter-spacing: 0.16em;
+  white-space: nowrap;
+  text-shadow: 0 0 6px rgba(34, 230, 255, 0.5);
+  box-shadow: 0 0 6px rgba(34, 230, 255, 0.08) inset;
+  flex-shrink: 0;
+}
+
+.genre-empty {
+  color: var(--text-dim);
+  font-family: 'Share Tech Mono', monospace;
+  font-size: 12px;
+  letter-spacing: 0.10em;
+}
+
+/* ============== CLIPPING INDICATOR ============== */
+.clipping {
+  color: var(--amber) !important;
+  text-shadow: 0 0 8px var(--amber) !important;
+  animation: clip-blink 0.3s linear infinite;
+}
+@keyframes clip-blink {
+  0%, 100% { opacity: 1; }
+  50%       { opacity: 0.4; }
+}
+
+/* ============== BPM CONFIDENCE PIPS ============== */
+.bpm-conf {
+  font-size: 9px;
+  letter-spacing: 0.05em;
+  color: var(--cyan-dim);
+  margin-left: 6px;
+  font-family: 'Share Tech Mono', monospace;
+}
+
+/* ============== EQ BAND LABELS ============== */
+.eq-bands {
+  display: flex;
+  gap: 5px;
+  margin-left: 8px;
+}
+.eq-band {
+  font-family: 'Share Tech Mono', monospace;
+  font-size: 10px;
+  letter-spacing: 0.08em;
+  color: var(--text-dim);
+  cursor: ns-resize;
+  padding: 0 3px;
+  border: 1px solid transparent;
+  transition: color 0.1s, border-color 0.1s;
+  min-width: 36px;
+  text-align: center;
+}
+.eq-band:hover {
+  color: var(--cyan);
+  border-color: rgba(34, 230, 255, 0.3);
+}
+.eq-band.eq-boosted { color: var(--cyan); }
+.eq-band.eq-cut     { color: var(--magenta); }
+
+/* ============== COMP BUTTON (inline info bar) ============== */
+.info-btn {
+  font-size: 10px;
+  letter-spacing: 0.12em;
+  height: 22px;
+  padding: 0 8px;
+  width: auto;
+}
+
+/* ============== REC INDICATOR ============== */
+.rec-indicator {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  color: var(--amber);
+  font-family: 'Share Tech Mono', monospace;
+  font-size: 11px;
+  letter-spacing: 0.18em;
+  text-shadow: 0 0 6px var(--amber);
+}
+.rec-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--amber);
+  box-shadow: 0 0 8px var(--amber);
+  animation: rec-pulse 1s ease-in-out infinite;
+}
+@keyframes rec-pulse {
+  0%, 100% { opacity: 1; }
+  50%       { opacity: 0.25; }
+}
+
+/* ============== QUEUE BADGE ============== */
+.queue-badge {
+  font-family: 'Share Tech Mono', monospace;
+  font-size: 10px;
+  letter-spacing: 0.12em;
+  color: var(--magenta);
+  text-shadow: 0 0 6px var(--magenta);
+  padding: 0 4px;
+}
+
+/* ============== KEYBOARD HELP OVERLAY ============== */
+.overlay {
+  position: absolute;
+  inset: 0;
+  background: rgba(2, 5, 16, 0.88);
+  z-index: 200;
+  display: grid;
+  place-items: center;
+  backdrop-filter: blur(4px);
+}
+.overlay-box {
+  background: rgba(8, 16, 36, 0.95);
+  border: 1px solid rgba(34, 230, 255, 0.35);
+  box-shadow: 0 0 40px rgba(34, 230, 255, 0.15) inset, 0 0 60px rgba(34, 230, 255, 0.08);
+  padding: 32px 40px 28px;
+  min-width: 380px;
+  max-width: 520px;
+}
+.overlay-title {
+  font-family: 'Orbitron', sans-serif;
+  font-size: 14px;
+  letter-spacing: 0.35em;
+  color: var(--cyan);
+  text-shadow: 0 0 8px rgba(34, 230, 255, 0.6);
+  margin-bottom: 22px;
+  text-align: center;
+}
+.kb-grid {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 8px 20px;
+  font-family: 'Share Tech Mono', monospace;
+  font-size: 12px;
+}
+.kb-key {
+  color: var(--magenta);
+  text-align: right;
+  letter-spacing: 0.10em;
+  white-space: nowrap;
+}
+.kb-desc {
+  color: var(--text);
+  letter-spacing: 0.08em;
+}
+.overlay-hint {
+  margin-top: 22px;
+  font-size: 9px;
+  letter-spacing: 0.18em;
+  color: var(--text-dim);
+  text-align: center;
+}
+
+/* ============== LOOP MARKERS ============== */
+.loop-markers { position: absolute; inset: 0; pointer-events: none; z-index: 10; }
+.loop-label {
+  position: absolute;
+  top: 8%;
+  font-family: 'Share Tech Mono', monospace;
+  font-size: 10px;
+  letter-spacing: 0.15em;
+  color: var(--amber);
+  text-shadow: 0 0 6px var(--amber);
+}
+
+/* ============== INFO ROW 4-col for BPM/KEY/MODE row ============== */
+.info-row.row-four {
+  grid-template-columns: 2fr 1fr 1fr 1fr;
+}
+.info-row.row-three-eq {
+  grid-template-columns: 2fr 2fr auto;
+  align-items: center;
+}
+
+/* ============== DATA CLIP INDICATOR ============== */
+.data-clip {
+  color: var(--amber) !important;
+  text-shadow: 0 0 8px var(--amber) !important;
+  animation: clip-blink 0.25s linear infinite;
+}
+

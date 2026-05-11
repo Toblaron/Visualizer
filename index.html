@@ -20,7 +20,33 @@
         <span class="bracket bracket-tr"></span>
         <span class="bracket bracket-bl"></span>
         <span class="bracket bracket-br"></span>
-        <span class="clock" id="clock">00:00:00</span>
+        <div class="track-progress" id="track-progress" role="slider" aria-label="Track progress">
+          <span class="track-time track-time-elapsed" id="track-time-elapsed">00:00</span>
+          <div class="track-progress-bar" id="track-progress-bar">
+            <canvas id="overview-canvas" class="overview-canvas"></canvas>
+            <div class="bar-fill" id="track-progress-fill"></div>
+            <div class="bar-handle" id="track-progress-handle"></div>
+          </div>
+          <span class="track-time track-time-total" id="track-time-total">00:00</span>
+        </div>
+      </div>
+      <div class="transport">
+        <button class="tp-btn" type="button" data-action="play"  title="Play (Space)">▶</button>
+        <button class="tp-btn" type="button" data-action="pause" title="Pause (Space)">⏸</button>
+        <button class="tp-btn" type="button" data-action="stop"  title="Stop">■</button>
+        <button class="tp-btn" type="button" id="mic-btn"        title="Microphone input (Alt+M)">MIC</button>
+        <div class="rec-indicator" id="rec-indicator" style="display:none">
+          <span class="rec-dot"></span><span>REC</span>
+        </div>
+        <span class="queue-badge" id="queue-badge" style="display:none"></span>
+        <label class="load-btn">
+          <span class="bracket bracket-tl"></span>
+          <span class="bracket bracket-tr"></span>
+          <span class="bracket bracket-bl"></span>
+          <span class="bracket bracket-br"></span>
+          <span class="load-btn-text">LOAD AUDIO</span>
+          <input id="file-input" class="visually-hidden" type="file" accept="audio/*" multiple />
+        </label>
       </div>
     </header>
 
@@ -108,20 +134,77 @@
       <span class="bracket bracket-tr"></span>
       <span class="bracket bracket-bl"></span>
       <span class="bracket bracket-br"></span>
-      <div class="info-row">
-        <div class="info-cell"><span class="info-label">TRACK:</span><span class="info-value" id="info-track">— DROP AN AUDIO FILE —</span></div>
-        <div class="info-cell"><span class="info-label">VOLUME:</span><span class="info-value" id="info-volume">78%</span></div>
+      <div class="seek-bar" id="seek-bar" role="slider" aria-label="Seek">
+        <div class="bar-fill" id="seek-fill"></div>
+        <div class="bar-handle" id="seek-handle"></div>
       </div>
       <div class="info-row">
-        <div class="info-cell"><span class="info-label">ARTIST:</span><span class="info-value" id="info-artist">AETHER SYNC</span></div>
-        <div class="info-cell"><span class="info-label">EQ:</span><span class="info-value" id="info-eq">ACTIVE</span></div>
+        <div class="info-cell"><span class="info-label">TRACK:</span><span class="info-value clickable" id="info-track">— DROP AN AUDIO FILE —</span></div>
+        <div class="info-cell info-cell-volume">
+          <span class="info-label clickable" id="volume-label" title="Mute / unmute">VOLUME:</span>
+          <div class="volume-bar" id="volume-bar" role="slider" aria-label="Volume">
+            <div class="bar-fill" id="volume-fill"></div>
+            <span class="bar-text" id="info-volume">78%</span>
+          </div>
+        </div>
       </div>
-      <div class="info-row">
+      <div class="info-row row-three-eq">
+        <div class="info-cell genre-cell">
+          <span class="info-label">GENRE:</span>
+          <div class="genre-tags" id="genre-tags"></div>
+        </div>
+        <div class="info-cell">
+          <span class="info-label">EQ:</span>
+          <span class="info-value" id="info-eq">PASSIVE</span>
+          <span class="eq-bands">
+            <span class="eq-band" id="eq-low"  title="Low shelf (scroll to adjust)">+0.0</span>
+            <span class="eq-band" id="eq-mid"  title="Mid peak (scroll to adjust)">+0.0</span>
+            <span class="eq-band" id="eq-high" title="High shelf (scroll to adjust)">+0.0</span>
+          </span>
+        </div>
+        <div class="info-cell"><button class="tp-btn info-btn" id="info-comp" type="button">COMP OFF</button></div>
+      </div>
+      <div class="info-row row-four">
         <div class="info-cell"><span class="info-label">ELAPSED:</span><span class="info-value" id="info-elapsed">00:00 / 00:00</span></div>
-        <div class="info-cell"><span class="info-label">BPM:</span><span class="info-value" id="info-bpm">---</span></div>
+        <div class="info-cell">
+          <span class="info-label">BPM:</span>
+          <span class="info-value" id="info-bpm">---</span>
+          <span class="bpm-conf" id="info-bpm-conf">○○○○</span>
+        </div>
+        <div class="info-cell"><span class="info-label">KEY:</span><span class="info-value" id="info-key">---</span></div>
         <div class="info-cell"><span class="info-label">MODE:</span><span class="info-value clickable" id="info-mode">AMBIENT PULSE</span></div>
       </div>
     </footer>
+
+    <!-- LOOP MARKERS -->
+    <div id="loop-markers" class="loop-markers" style="display:none">
+      <span id="loop-a-label" class="loop-label loop-label-a">A</span>
+      <span id="loop-b-label" class="loop-label loop-label-b">B</span>
+    </div>
+
+    <!-- KEYBOARD HELP OVERLAY -->
+    <div id="key-help" class="overlay" style="display:none" role="dialog" aria-modal="true">
+      <div class="overlay-box">
+        <div class="overlay-title">KEYBOARD CONTROLS</div>
+        <div class="kb-grid">
+          <span class="kb-key">SPACE</span><span class="kb-desc">Play / Pause</span>
+          <span class="kb-key">F</span><span class="kb-desc">Toggle Fullscreen</span>
+          <span class="kb-key">M</span><span class="kb-desc">Toggle Mute</span>
+          <span class="kb-key">T</span><span class="kb-desc">Tap Tempo</span>
+          <span class="kb-key">V</span><span class="kb-desc">Toggle Vectorscope</span>
+          <span class="kb-key">P</span><span class="kb-desc">Screenshot PNG</span>
+          <span class="kb-key">R</span><span class="kb-desc">Toggle WebM Recording</span>
+          <span class="kb-key">[ / ]</span><span class="kb-desc">Set Loop A / B</span>
+          <span class="kb-key">L</span><span class="kb-desc">Clear Loop</span>
+          <span class="kb-key">← →</span><span class="kb-desc">Seek ±5 sec</span>
+          <span class="kb-key">↑ ↓</span><span class="kb-desc">Volume ±5%</span>
+          <span class="kb-key">Alt+M</span><span class="kb-desc">Microphone Input</span>
+          <span class="kb-key">?</span><span class="kb-desc">This Help</span>
+          <span class="kb-key">ESC</span><span class="kb-desc">Close Overlay</span>
+        </div>
+        <div class="overlay-hint">CLICK ANYWHERE OR ESC TO CLOSE &nbsp;·&nbsp; DOUBLE-CLICK PANEL TITLE TO TOGGLE VIEW</div>
+      </div>
+    </div>
 
     <!-- DROP OVERLAY -->
     <div class="drop-overlay" id="drop-overlay">
@@ -131,9 +214,8 @@
       </div>
     </div>
 
-    <!-- HIDDEN AUDIO + FILE INPUT -->
+    <!-- HIDDEN AUDIO -->
     <audio id="audio-element" preload="auto"></audio>
-    <input id="file-input" type="file" accept="audio/*" hidden />
   </div>
 
   <script type="module" src="./src/main.js"></script>
