@@ -18,6 +18,12 @@ python -m http.server 8080
 
 4. Open your browser and go to `http://localhost:8080`
 
+For the best experience (no browser chrome), launch Chrome in app mode instead:
+
+```bash
+chrome --app=http://localhost:8080
+```
+
 ## Usage
 
 - Click **LOAD AUDIO** or drag and drop an audio file onto the window

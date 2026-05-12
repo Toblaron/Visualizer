@@ -367,11 +367,6 @@ async function loadYouTubeVideo(videoId) {
     updateQueueBadge();
     return;
   }
-  // Go fullscreen immediately (same user-gesture chain as Enter key) so Chrome's
-  // "Sharing this tab" bar is hidden behind the Fullscreen API overlay.
-  if (!document.fullscreenElement) {
-    document.documentElement.requestFullscreen().catch(() => {});
-  }
   // Insert after current item (or at start) and play immediately.
   const insertAt = nowPlaying + 1;
   playlist.splice(insertAt, 0, { type: 'youtube', file: null, videoId, title: 'YOUTUBE · ' + videoId });
