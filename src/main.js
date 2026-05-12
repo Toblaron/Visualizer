@@ -16,8 +16,9 @@ const STAGE_TOGGLE_EXCLUDE =
   '.eq-band, #key-help, .overlay, #playlist-panel';
 
 // ── Playlist ──────────────────────────────────────────────────────────────────
-let playlist   = [];
-let nowPlaying = -1;
+let playlist    = [];
+let nowPlaying  = -1;
+let shuffleMode = false;
 
 function itemTitle(item) {
   return item.file.name.replace(/\.[^.]+$/, '');
@@ -136,6 +137,11 @@ function setupPlaylist() {
   });
   document.getElementById('playlist-close-btn')?.addEventListener('click', (e) => {
     e.stopPropagation(); hidePlaylist();
+  });
+  document.getElementById('playlist-shuffle-btn')?.addEventListener('click', (e) => {
+    e.stopPropagation();
+    shuffleMode = !shuffleMode;
+    e.currentTarget.classList.toggle('active', shuffleMode);
   });
   document.getElementById('playlist-clear-btn')?.addEventListener('click', (e) => {
     e.stopPropagation(); playlistClear();
@@ -429,7 +435,14 @@ function boot() {
 }
 
 function onTrackEnded() {
-  if (nowPlaying + 1 < playlist.length) playlistJump(nowPlaying + 1);
+  if (playlist.length === 0) return;
+  if (shuffleMode && playlist.length > 1) {
+    let next;
+    do { next = Math.floor(Math.random() * playlist.length); } while (next === nowPlaying);
+    playlistJump(next);
+  } else if (nowPlaying + 1 < playlist.length) {
+    playlistJump(nowPlaying + 1);
+  }
 }
 
 
