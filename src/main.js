@@ -13,22 +13,152 @@ const $canvas = (name) => document.querySelector(`canvas[data-canvas="${name}"]`
 const STAGE_TOGGLE_EXCLUDE =
   '.tp-btn, .load-btn, .seek-bar, .volume-bar, .track-progress-bar, .info-btn, ' +
   '#info-track, .info-value.clickable, .info-label.clickable, ' +
-  '.eq-band, #key-help, .overlay, #yt-wrap, .yt-close';
+  '.eq-band, #key-help, .overlay, #yt-wrap, .yt-close, #playlist-panel';
 
-// ── Playlist queue ──────────────────────────────────────────────────────────
-let queue = [];
-function enqueueFiles(files) {
-  const arr = Array.from(files);
-  if (arr.length === 0) return;
-  loadFile(arr[0]);
-  for (let i = 1; i < arr.length; i++) queue.push(arr[i]);
-  updateQueueBadge();
+// ── Playlist ──────────────────────────────────────────────────────────────────
+// Each item: { type: 'file'|'youtube', file: File|null, videoId: string|null, title: string }
+let playlist   = [];
+let nowPlaying = -1;
+let ytActive   = false;
+let ytQueueMode = false; // true → next YT overlay submit adds to queue instead of playing
+
+function itemTitle(item) {
+  if (item.type === 'file') return item.file.name.replace(/\.[^.]+$/, '');
+  return item.title || ('YOUTUBE · ' + item.videoId);
 }
+
 function updateQueueBadge() {
   const el = document.getElementById('queue-badge');
   if (!el) return;
-  if (queue.length > 0) { el.textContent = `+${queue.length}`; el.style.display = ''; }
+  const ahead = playlist.length - (nowPlaying + 1);
+  if (ahead > 0) { el.textContent = `+${ahead}`; el.style.display = ''; }
   else el.style.display = 'none';
+}
+
+function renderPlaylist() {
+  const body  = document.getElementById('playlist-body');
+  const count = document.getElementById('playlist-count');
+  if (!body) return;
+  if (count) count.textContent = `${playlist.length} TRACK${playlist.length !== 1 ? 'S' : ''}`;
+  if (playlist.length === 0) {
+    body.innerHTML = '<div class="playlist-empty">NO TRACKS LOADED</div>';
+    return;
+  }
+  body.innerHTML = '';
+  playlist.forEach((item, i) => {
+    const row = document.createElement('div');
+    row.className = 'playlist-item' + (i === nowPlaying ? ' now-playing' : '');
+
+    const num = document.createElement('span');
+    num.className = 'playlist-item-num';
+    num.textContent = i === nowPlaying ? '▶' : String(i + 1).padStart(2, '0');
+
+    const info = document.createElement('div');
+    info.className = 'playlist-item-info';
+    const title = document.createElement('div');
+    title.className = 'playlist-item-title';
+    title.textContent = itemTitle(item);
+    const type = document.createElement('div');
+    type.className = 'playlist-item-type';
+    type.textContent = item.type === 'youtube' ? 'YOUTUBE' : 'AUDIO';
+    info.append(title, type);
+
+    const rm = document.createElement('button');
+    rm.className = 'playlist-item-remove';
+    rm.textContent = '✕';
+    rm.title = 'Remove';
+    rm.addEventListener('click', (e) => { e.stopPropagation(); playlistRemove(i); });
+
+    row.append(num, info, rm);
+    row.addEventListener('click', () => playlistJump(i));
+    body.appendChild(row);
+  });
+  body.querySelector('.now-playing')?.scrollIntoView({ block: 'nearest' });
+}
+
+async function playlistJump(index) {
+  if (index < 0 || index >= playlist.length) return;
+  nowPlaying = index;
+  const item = playlist[index];
+  if (item.type === 'youtube') {
+    await _playYouTubeItem(item.videoId);
+  } else {
+    if (ytActive) _closeYouTubeUI();
+    histogram.reset();
+    await loadFile(item.file);
+  }
+  renderPlaylist();
+  updateQueueBadge();
+}
+
+function playlistRemove(index) {
+  const wasActive = index === nowPlaying;
+  playlist.splice(index, 1);
+  if (index < nowPlaying) {
+    nowPlaying--;
+  } else if (wasActive) {
+    nowPlaying = Math.min(index, playlist.length - 1);
+    if (nowPlaying >= 0) playlistJump(nowPlaying);
+    else { audio.stop(); _closeYouTubeUI(); nowPlaying = -1; }
+  }
+  renderPlaylist();
+  updateQueueBadge();
+}
+
+function playlistClear() {
+  audio.stop();
+  _closeYouTubeUI();
+  playlist = [];
+  nowPlaying = -1;
+  renderPlaylist();
+  updateQueueBadge();
+}
+
+function enqueueFiles(files) {
+  const arr = Array.from(files);
+  if (arr.length === 0) return;
+  const startIdx = playlist.length;
+  for (const f of arr) {
+    playlist.push({ type: 'file', file: f, videoId: null, title: '' });
+  }
+  if (nowPlaying < 0) playlistJump(startIdx);
+  else { renderPlaylist(); updateQueueBadge(); }
+}
+
+// ── Playlist panel UI ─────────────────────────────────────────────────────────
+function showPlaylist() {
+  const el = document.getElementById('playlist-panel');
+  if (el) el.style.display = '';
+  renderPlaylist();
+}
+function hidePlaylist() {
+  const el = document.getElementById('playlist-panel');
+  if (el) el.style.display = 'none';
+}
+function togglePlaylist() {
+  const el = document.getElementById('playlist-panel');
+  if (!el) return;
+  if (el.style.display === 'none' || !el.style.display) showPlaylist();
+  else hidePlaylist();
+}
+function setupPlaylist() {
+  document.getElementById('playlist-btn')?.addEventListener('click', (e) => {
+    e.stopPropagation(); togglePlaylist();
+  });
+  document.getElementById('playlist-close-btn')?.addEventListener('click', (e) => {
+    e.stopPropagation(); hidePlaylist();
+  });
+  document.getElementById('playlist-clear-btn')?.addEventListener('click', (e) => {
+    e.stopPropagation(); playlistClear();
+  });
+  document.getElementById('playlist-add-yt-btn')?.addEventListener('click', (e) => {
+    e.stopPropagation();
+    ytQueueMode = true;
+    showYtOverlay();
+  });
+  document.getElementById('queue-badge')?.addEventListener('click', (e) => {
+    e.stopPropagation(); togglePlaylist();
+  });
 }
 
 // ── A/B loop ────────────────────────────────────────────────────────────────
@@ -140,38 +270,64 @@ function parseYouTubeId(url) {
   return m ? m[1] : null;
 }
 
-async function loadYouTubeVideo(videoId) {
-  const wrap   = document.getElementById('yt-wrap');
-  const iframe = document.getElementById('yt-iframe');
-  if (!wrap || !iframe) return;
-  audio.stop();
-  iframe.src = `https://www.youtube.com/embed/${videoId}?autoplay=1&rel=0`;
-  wrap.style.display = 'flex';
-  center.setYouTubeMode(true);
-
-  // Capture tab audio so all panels react to the YouTube video.
-  // getDisplayMedia must be called within the same user-gesture chain (Enter key).
-  try {
-    await audio.startTabCapture();
-    document.getElementById('mic-btn')?.classList.add('active');
-    infoBar.onTrackLoaded();
-  } catch (err) {
-    // User cancelled the share dialog — video still plays, panels go quiet.
-    console.info('[yt] Tab audio capture cancelled or unavailable:', err.message);
-  }
-}
-
-function closeYouTubeVideo() {
+// Internal: close YouTube iframe + capture only — does not modify playlist array.
+function _closeYouTubeUI() {
   const wrap   = document.getElementById('yt-wrap');
   const iframe = document.getElementById('yt-iframe');
   if (!wrap || !iframe) return;
   iframe.src = '';
   wrap.style.display = 'none';
   center.setYouTubeMode(false);
+  ytActive = false;
   if (audio.isMicActive()) {
     audio.stopMic();
     document.getElementById('mic-btn')?.classList.remove('active');
   }
+}
+
+// Internal: play a YouTube video (called by playlistJump).
+async function _playYouTubeItem(videoId) {
+  const wrap   = document.getElementById('yt-wrap');
+  const iframe = document.getElementById('yt-iframe');
+  if (!wrap || !iframe) return;
+  if (ytActive) _closeYouTubeUI();
+  audio.stop();
+  iframe.src = `https://www.youtube.com/embed/${videoId}?autoplay=1&rel=0`;
+  wrap.style.display = 'flex';
+  center.setYouTubeMode(true);
+  ytActive = true;
+  try {
+    await audio.startTabCapture();
+    document.getElementById('mic-btn')?.classList.add('active');
+    infoBar.onTrackLoaded();
+  } catch (err) {
+    console.info('[yt] Tab audio capture cancelled:', err.message);
+  }
+}
+
+// User-facing: load from YT overlay — adds to playlist and plays (or queues if ytQueueMode).
+async function loadYouTubeVideo(videoId) {
+  if (ytQueueMode) {
+    ytQueueMode = false;
+    playlist.push({ type: 'youtube', file: null, videoId, title: 'YOUTUBE · ' + videoId });
+    renderPlaylist();
+    updateQueueBadge();
+    return;
+  }
+  // Insert after current item (or at start) and play immediately.
+  const insertAt = nowPlaying + 1;
+  playlist.splice(insertAt, 0, { type: 'youtube', file: null, videoId, title: 'YOUTUBE · ' + videoId });
+  nowPlaying = insertAt;
+  await _playYouTubeItem(videoId);
+  renderPlaylist();
+  updateQueueBadge();
+}
+
+// User-facing close (ESC / close button).
+function closeYouTubeVideo() {
+  _closeYouTubeUI();
+  renderPlaylist();
+  updateQueueBadge();
 }
 
 function showYtOverlay() {
@@ -184,6 +340,7 @@ function showYtOverlay() {
 function hideYtOverlay() {
   const el = document.getElementById('yt-overlay');
   if (el) el.style.display = 'none';
+  ytQueueMode = false; // reset if user cancels
 }
 
 function setupYouTube() {
@@ -386,6 +543,7 @@ function boot() {
   setupFileDropZone();
   setupTransport();
   setupYouTube();
+  setupPlaylist();
   setupKeyboard();
 
   startRaf();
@@ -400,10 +558,7 @@ function boot() {
 }
 
 function onTrackEnded() {
-  if (queue.length > 0) {
-    loadFile(queue.shift());
-    updateQueueBadge();
-  }
+  if (nowPlaying + 1 < playlist.length) playlistJump(nowPlaying + 1);
 }
 
 
@@ -574,6 +729,11 @@ function setupKeyboard() {
       case 'Y':
         e.preventDefault();
         showYtOverlay();
+        break;
+      case 'q':
+      case 'Q':
+        e.preventDefault();
+        togglePlaylist();
         break;
       case '?':
         e.preventDefault();

@@ -36,6 +36,7 @@
         <button class="tp-btn" type="button" data-action="stop"  title="Stop">■</button>
         <button class="tp-btn" type="button" id="mic-btn"        title="Microphone input (Alt+M)">MIC</button>
         <button class="tp-btn" type="button" id="yt-btn"          title="Load YouTube video (Y)">YT</button>
+        <button class="tp-btn" type="button" id="playlist-btn"   title="Playlist (Q)">LIST</button>
         <div class="rec-indicator" id="rec-indicator" style="display:none">
           <span class="rec-dot"></span><span>REC</span>
         </div>
@@ -187,6 +188,26 @@
       <span id="loop-b-label" class="loop-label loop-label-b">B</span>
     </div>
 
+    <!-- PLAYLIST PANEL -->
+    <div id="playlist-panel" class="playlist-panel" style="display:none">
+      <span class="bracket bracket-tl"></span>
+      <span class="bracket bracket-tr"></span>
+      <span class="bracket bracket-bl"></span>
+      <span class="bracket bracket-br"></span>
+      <div class="playlist-hdr">
+        <span class="playlist-hdr-title">PLAYLIST</span>
+        <span class="playlist-hdr-count" id="playlist-count">0 TRACKS</span>
+        <button class="tp-btn playlist-close-btn" id="playlist-close-btn" type="button">✕</button>
+      </div>
+      <div class="playlist-body" id="playlist-body">
+        <div class="playlist-empty">NO TRACKS LOADED</div>
+      </div>
+      <div class="playlist-ftr">
+        <button class="tp-btn" id="playlist-add-yt-btn" type="button">+ YOUTUBE</button>
+        <button class="tp-btn" id="playlist-clear-btn" type="button">CLEAR ALL</button>
+      </div>
+    </div>
+
     <!-- YOUTUBE URL OVERLAY -->
     <div id="yt-overlay" class="overlay" style="display:none" role="dialog" aria-modal="true">
       <div class="overlay-box">
@@ -214,6 +235,7 @@
           <span class="kb-key">↑ ↓</span><span class="kb-desc">Volume ±5%</span>
           <span class="kb-key">Alt+M</span><span class="kb-desc">Microphone Input</span>
           <span class="kb-key">Y</span><span class="kb-desc">Load YouTube Video</span>
+          <span class="kb-key">Q</span><span class="kb-desc">Toggle Playlist</span>
           <span class="kb-key">?</span><span class="kb-desc">This Help</span>
           <span class="kb-key">ESC</span><span class="kb-desc">Close Overlay</span>
         </div>
