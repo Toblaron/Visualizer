@@ -18,7 +18,13 @@ python -m http.server 8080
 
 4. Open your browser and go to `http://localhost:8080`
 
-For the best experience (no browser chrome), launch Chrome in app mode instead:
+For the best experience, use the included `start.bat` — it launches Chrome in app mode (no browser chrome, no address bar):
+
+```
+double-click start.bat
+```
+
+Or run it manually:
 
 ```bash
 chrome --app=http://localhost:8080
