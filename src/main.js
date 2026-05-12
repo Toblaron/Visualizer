@@ -13,18 +13,14 @@ const $canvas = (name) => document.querySelector(`canvas[data-canvas="${name}"]`
 const STAGE_TOGGLE_EXCLUDE =
   '.tp-btn, .load-btn, .seek-bar, .volume-bar, .track-progress-bar, .info-btn, ' +
   '#info-track, .info-value.clickable, .info-label.clickable, ' +
-  '.eq-band, #key-help, .overlay, #yt-wrap, .yt-close, #playlist-panel';
+  '.eq-band, #key-help, .overlay, #playlist-panel';
 
 // ── Playlist ──────────────────────────────────────────────────────────────────
-// Each item: { type: 'file'|'youtube', file: File|null, videoId: string|null, title: string }
 let playlist   = [];
 let nowPlaying = -1;
-let ytActive   = false;
-let ytQueueMode = false; // true → next YT overlay submit adds to queue instead of playing
 
 function itemTitle(item) {
-  if (item.type === 'file') return item.file.name.replace(/\.[^.]+$/, '');
-  return item.title || ('YOUTUBE · ' + item.videoId);
+  return item.file.name.replace(/\.[^.]+$/, '');
 }
 
 function updateQueueBadge() {
@@ -79,15 +75,8 @@ function renderPlaylist() {
 async function playlistJump(index) {
   if (index < 0 || index >= playlist.length) return;
   nowPlaying = index;
-  const item = playlist[index];
-  if (item.type === 'youtube') {
-    await _playYouTubeItem(item.videoId);
-  } else {
-    if (ytActive) _closeYouTubeUI();
-    audio._timeOverride = null;
-    histogram.reset();
-    await loadFile(item.file);
-  }
+  histogram.reset();
+  await loadFile(playlist[index].file);
   renderPlaylist();
   updateQueueBadge();
 }
@@ -108,7 +97,6 @@ function playlistRemove(index) {
 
 function playlistClear() {
   audio.stop();
-  _closeYouTubeUI();
   playlist = [];
   nowPlaying = -1;
   renderPlaylist();
@@ -151,11 +139,6 @@ function setupPlaylist() {
   });
   document.getElementById('playlist-clear-btn')?.addEventListener('click', (e) => {
     e.stopPropagation(); playlistClear();
-  });
-  document.getElementById('playlist-add-yt-btn')?.addEventListener('click', (e) => {
-    e.stopPropagation();
-    ytQueueMode = true;
-    showYtOverlay();
   });
   document.getElementById('queue-badge')?.addEventListener('click', (e) => {
     e.stopPropagation(); togglePlaylist();
@@ -265,244 +248,6 @@ function toggleRecording() {
   else startRecording();
 }
 
-// ── YouTube ───────────────────────────────────────────────────────────────────
-function parseYouTubeId(url) {
-  const m = url.match(/(?:youtube\.com\/(?:watch\?[^#]*v=|embed\/)|youtu\.be\/)([A-Za-z0-9_-]{11})/);
-  return m ? m[1] : null;
-}
-
-// YouTube IFrame API loader — resolves when YT global is ready.
-let _ytApiReady = false;
-const _ytApiWaiters = [];
-window.onYouTubeIframeAPIReady = () => {
-  _ytApiReady = true;
-  _ytApiWaiters.splice(0).forEach((r) => r());
-};
-function _waitForYTApi() {
-  if (_ytApiReady) return Promise.resolve();
-  return new Promise((r) => _ytApiWaiters.push(r));
-}
-function _loadYTApiScript() {
-  if (document.getElementById('yt-api-script')) return;
-  const s = Object.assign(document.createElement('script'), {
-    id:  'yt-api-script',
-    src: 'https://www.youtube.com/iframe_api',
-  });
-  document.head.appendChild(s);
-}
-
-let ytPlayer = null;
-
-// Internal: close YouTube player + capture — does not modify playlist array.
-function _closeYouTubeUI() {
-  if (ytPlayer) { try { ytPlayer.destroy(); } catch (_) {} ytPlayer = null; }
-  audio._timeOverride = null;
-  const wrap = document.getElementById('yt-wrap');
-  if (wrap) wrap.style.display = 'none';
-  center.setYouTubeMode(false);
-  ytActive = false;
-  if (audio.isMicActive()) {
-    audio.stopMic();
-    document.getElementById('mic-btn')?.classList.remove('active');
-  }
-  document.getElementById('yt-audio-src-btn')?.classList.remove('active');
-}
-
-// Internal: play a YouTube video (called by playlistJump).
-async function _playYouTubeItem(videoId) {
-  if (ytActive) _closeYouTubeUI();
-  audio.stop();
-
-  const wrap = document.getElementById('yt-wrap');
-  if (wrap) wrap.style.display = 'flex';
-  center.setYouTubeMode(true);
-  ytActive = true;
-
-  // Don't auto-capture — let the user pick their source via the AUDIO SOURCE button.
-
-  // Create the YouTube IFrame API player for time tracking + seeking.
-  _loadYTApiScript();
-  _waitForYTApi().then(() => {
-    if (!ytActive) return; // user closed the video while API was loading
-    if (ytPlayer) { try { ytPlayer.destroy(); } catch (_) {} ytPlayer = null; }
-    audio._timeOverride = null;
-
-    const div = document.getElementById('yt-player-div');
-    if (!div) return;
-    ytPlayer = new YT.Player(div, {
-      width: '100%',
-      height: '100%',
-      videoId,
-      playerVars: { autoplay: 1, rel: 0, modestbranding: 1 },
-      events: {
-        onReady: () => {
-          audio._timeOverride = {
-            elapsed:  () => { try { return ytPlayer.getCurrentTime() || 0; } catch (_) { return 0; } },
-            duration: () => { try { return ytPlayer.getDuration()  || 0; } catch (_) { return 0; } },
-            seek:     (t) => { try { ytPlayer.seekTo(t, true); } catch (_) {} },
-          };
-        },
-        onStateChange: (e) => {
-          if (typeof YT !== 'undefined' && YT.PlayerState && e.data === YT.PlayerState.ENDED) {
-            onTrackEnded();
-          }
-        },
-      },
-    });
-  });
-}
-
-// User-facing: load from YT overlay — adds to playlist and plays (or queues if ytQueueMode).
-async function loadYouTubeVideo(videoId) {
-  if (ytQueueMode) {
-    ytQueueMode = false;
-    playlist.push({ type: 'youtube', file: null, videoId, title: 'YOUTUBE · ' + videoId });
-    renderPlaylist();
-    updateQueueBadge();
-    return;
-  }
-  // Insert after current item (or at start) and play immediately.
-  const insertAt = nowPlaying + 1;
-  playlist.splice(insertAt, 0, { type: 'youtube', file: null, videoId, title: 'YOUTUBE · ' + videoId });
-  nowPlaying = insertAt;
-  await _playYouTubeItem(videoId);
-  renderPlaylist();
-  updateQueueBadge();
-}
-
-// User-facing close (ESC / close button).
-function closeYouTubeVideo() {
-  _closeYouTubeUI();
-  renderPlaylist();
-  updateQueueBadge();
-}
-
-// ── Audio source picker ───────────────────────────────────────────────────────
-function showAudioSrcOverlay() {
-  const overlay = document.getElementById('audio-src-overlay');
-  const list    = document.getElementById('audio-src-list');
-  if (!overlay || !list) return;
-
-  list.innerHTML = '<div style="color:var(--text-dim);font-size:10px;letter-spacing:.1em;padding:8px 0">LOADING DEVICES…</div>';
-  overlay.style.display = '';
-
-  // Request mic permission so browsers expose device labels, then enumerate.
-  navigator.mediaDevices.getUserMedia({ audio: true, video: false })
-    .then((tempStream) => {
-      tempStream.getTracks().forEach((t) => t.stop());
-      return navigator.mediaDevices.enumerateDevices();
-    })
-    .then((devices) => {
-      const inputs = devices.filter((d) => d.kind === 'audioinput');
-      list.innerHTML = '';
-
-      inputs.forEach((dev) => {
-        const row = _audioSrcRow('🎚', dev.label || `Device ${dev.deviceId.slice(0, 6)}`, 'DEVICE INPUT — no sharing bar', async () => {
-          hideAudioSrcOverlay();
-          try {
-            await audio.startFromDevice(dev.deviceId);
-            document.getElementById('mic-btn')?.classList.add('active');
-            document.getElementById('yt-audio-src-btn')?.classList.add('active');
-            infoBar.onTrackLoaded();
-          } catch (err) {
-            alert('Could not open device: ' + err.message);
-          }
-        });
-        list.appendChild(row);
-      });
-
-      // Window/tab capture fallback
-      const capRow = _audioSrcRow('🖥', 'Window / Tab Capture', 'GETDISPLAYMEDIA — sharing bar will appear', async () => {
-        hideAudioSrcOverlay();
-        try {
-          await audio.startTabCapture();
-          document.getElementById('mic-btn')?.classList.add('active');
-          document.getElementById('yt-audio-src-btn')?.classList.add('active');
-          infoBar.onTrackLoaded();
-        } catch (err) {
-          console.info('[yt] capture cancelled:', err.message);
-        }
-      });
-      list.appendChild(capRow);
-    })
-    .catch(() => {
-      list.innerHTML = '<div style="color:var(--magenta);font-size:10px;letter-spacing:.1em;padding:8px 0">MIC PERMISSION DENIED</div>';
-    });
-}
-
-function _audioSrcRow(icon, label, sub, onClick) {
-  const row = document.createElement('div');
-  row.className = 'audio-src-item';
-  row.innerHTML = `<span class="audio-src-item-icon">${icon}</span>
-    <div class="audio-src-item-label">
-      <div>${label}</div>
-      <div class="audio-src-item-sub">${sub}</div>
-    </div>`;
-  row.addEventListener('click', onClick);
-  return row;
-}
-
-function hideAudioSrcOverlay() {
-  const el = document.getElementById('audio-src-overlay');
-  if (el) el.style.display = 'none';
-}
-
-function setupAudioSrcPicker() {
-  document.getElementById('yt-audio-src-btn')?.addEventListener('click', (e) => {
-    e.stopPropagation();
-    showAudioSrcOverlay();
-  });
-  document.getElementById('audio-src-overlay')?.addEventListener('click', (e) => {
-    if (e.target.id === 'audio-src-overlay') hideAudioSrcOverlay();
-  });
-}
-
-function showYtOverlay() {
-  const el = document.getElementById('yt-overlay');
-  if (!el) return;
-  el.style.display = '';
-  setTimeout(() => document.getElementById('yt-url-input')?.focus(), 40);
-}
-
-function hideYtOverlay() {
-  const el = document.getElementById('yt-overlay');
-  if (el) el.style.display = 'none';
-  ytQueueMode = false; // reset if user cancels
-}
-
-function setupYouTube() {
-  document.getElementById('yt-btn')?.addEventListener('click', (e) => {
-    e.stopPropagation();
-    showYtOverlay();
-  });
-
-  document.getElementById('yt-overlay')?.addEventListener('click', (e) => {
-    if (e.target.id === 'yt-overlay') hideYtOverlay();
-  });
-
-  document.getElementById('yt-url-input')?.addEventListener('keydown', async (e) => {
-    if (e.key === 'Enter') {
-      e.preventDefault();
-      const id = parseYouTubeId(e.target.value.trim());
-      if (id) {
-        hideYtOverlay();
-        e.target.value = '';
-        await loadYouTubeVideo(id); // await keeps getDisplayMedia inside the user-gesture chain
-      } else {
-        e.target.style.borderColor = 'var(--magenta)';
-        setTimeout(() => { e.target.style.borderColor = ''; }, 900);
-      }
-    } else if (e.key === 'Escape') {
-      e.preventDefault();
-      hideYtOverlay();
-    }
-  });
-
-  document.getElementById('yt-close')?.addEventListener('click', (e) => {
-    e.stopPropagation();
-    closeYouTubeVideo();
-  });
-}
 
 // ── Screenshot ───────────────────────────────────────────────────────────────
 function takeSnapshot() {
@@ -669,9 +414,7 @@ function boot() {
   loadSettings();
   setupFileDropZone();
   setupTransport();
-  setupYouTube();
   setupPlaylist();
-  setupAudioSrcPicker();
   setupKeyboard();
 
   startRaf();
@@ -770,11 +513,6 @@ function setupTransport() {
 function setupKeyboard() {
   window.addEventListener('keydown', (e) => {
     if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
-    const ytOverlay = document.getElementById('yt-overlay');
-    if (ytOverlay && ytOverlay.style.display !== 'none') {
-      if (e.key === 'Escape') { hideYtOverlay(); e.preventDefault(); }
-      return;
-    }
     const help = document.getElementById('key-help');
     if (help && help.style.display !== 'none') {
       if (e.key === 'Escape') { hideKeyHelp(); e.preventDefault(); }
@@ -852,11 +590,6 @@ function setupKeyboard() {
       case 'l':
       case 'L':
         clearLoop();
-        break;
-      case 'y':
-      case 'Y':
-        e.preventDefault();
-        showYtOverlay();
         break;
       case 'q':
       case 'Q':

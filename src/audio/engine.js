@@ -60,8 +60,6 @@ class AudioEngine {
 
     this._micStream = null;
     this._micSource = null;
-    this._tabCaptureMode = false;
-    this._timeOverride = null; // { elapsed(), duration(), seek(t) } set when YouTube player is active
 
     this.freqBuf  = new Uint8Array(FFT_SIZE / 2);
     this.timeBuf  = new Uint8Array(FFT_SIZE);
@@ -248,10 +246,7 @@ class AudioEngine {
   pause()  { if (this.audioEl) this.audioEl.pause(); }
   stop()   { if (!this.audioEl) return; this.audioEl.pause(); try { this.audioEl.currentTime = 0; } catch (_) {} }
   toggle() { if (!this.audioEl || !this.audioEl.src) return; if (this.audioEl.paused) this.play(); else this.audioEl.pause(); }
-  seek(t)  {
-    if (this._timeOverride?.seek) { this._timeOverride.seek(t); return; }
-    if (this.audioEl) this.audioEl.currentTime = t;
-  }
+  seek(t)  { if (this.audioEl) this.audioEl.currentTime = t; }
 
   setVolume(v) { this._userVolume = Math.max(0, Math.min(1, v)); this._muted = false; if (this.gainNode) this.gainNode.gain.value = this._userVolume; }
   getVolume()  { return this._userVolume; }
@@ -260,14 +255,8 @@ class AudioEngine {
   toggleMute() { if (this._muted) this.unmute(); else this.mute(); }
   isMuted()    { return this._muted; }
 
-  getElapsed()  {
-    if (this._timeOverride?.elapsed) { try { return this._timeOverride.elapsed(); } catch (_) {} }
-    return this.audioEl ? this.audioEl.currentTime : 0;
-  }
-  getDuration() {
-    if (this._timeOverride?.duration) { try { return this._timeOverride.duration(); } catch (_) {} }
-    return this.audioEl ? (this.audioEl.duration || 0) : 0;
-  }
+  getElapsed()  { return this.audioEl ? this.audioEl.currentTime : 0; }
+  getDuration() { return this.audioEl ? (this.audioEl.duration || 0) : 0; }
 
   // EQ: gains in dB (±12), applied with 15ms smoothing to avoid clicks
   setEq(low, mid, high) {
@@ -317,76 +306,10 @@ class AudioEngine {
   stopMic() {
     if (this._micSource) { try { this._micSource.disconnect(); } catch (_) {} this._micSource = null; }
     if (this._micStream) { this._micStream.getTracks().forEach((t) => t.stop()); this._micStream = null; }
-    if (this._tabCaptureMode) {
-      this._tabCaptureMode = false;
-      // Reconnect audio output that was silenced during tab capture.
-      if (this.compressorNode && this.ctx) {
-        try { this.compressorNode.connect(this.ctx.destination); } catch (_) {}
-      }
-    }
     if (this.state === 'playing') this.state = 'paused';
   }
 
   isMicActive() { return this._micStream !== null; }
-
-  // Capture from a specific audio input device (e.g. Stereo Mix) — no sharing bar.
-  async startFromDevice(deviceId) {
-    this._ensureContext();
-    if (this._micSource) this.stopMic();
-    if (this.audioEl) this.audioEl.pause();
-    if (this.ctx.state === 'suspended') await this.ctx.resume().catch(() => {});
-    const stream = await navigator.mediaDevices.getUserMedia({
-      audio: { deviceId: { exact: deviceId }, echoCancellation: false, noiseSuppression: false, autoGainControl: false },
-    });
-    this._micStream  = stream;
-    this._micSource  = this.ctx.createMediaStreamSource(stream);
-    this._micSource.connect(this.eqLow);
-    // Silence engine output — source device already plays audio to speakers.
-    if (this.compressorNode) { try { this.compressorNode.disconnect(this.ctx.destination); } catch (_) {} }
-    this._tabCaptureMode = true;
-    this.state    = 'playing';
-    this.metadata = { title: 'YOUTUBE · DEVICE AUDIO', artist: 'LIVE CAPTURE', album: '', picture: null, genres: [] };
-    stream.getAudioTracks()[0].addEventListener('ended', () => this.stopMic());
-  }
-
-  // Tab audio capture via getDisplayMedia — call during a user gesture so the browser allows it.
-  async startTabCapture() {
-    this._ensureContext();
-    if (this._micSource) this.stopMic();
-    if (this.audioEl) this.audioEl.pause();
-
-    // getDisplayMedia must be called close to the user gesture — do it first.
-    // preferCurrentTab + selfBrowserSurface hint Chrome to pre-select the current tab.
-    const stream = await navigator.mediaDevices.getDisplayMedia({
-      preferCurrentTab: true,
-      video: { selfBrowserSurface: 'include', width: 1, height: 1, frameRate: 1 },
-      audio: { echoCancellation: false, noiseSuppression: false, autoGainControl: false },
-    });
-
-    const audioTracks = stream.getAudioTracks();
-    if (audioTracks.length === 0) {
-      stream.getTracks().forEach((t) => t.stop());
-      throw new Error('No audio track captured — tick "Share tab audio" or "Share system audio" in the picker.');
-    }
-
-    if (this.ctx.state === 'suspended') await this.ctx.resume().catch(() => {});
-
-    // Silence the engine's speaker output — the YouTube iframe already plays the audio.
-    // The analyser chain stays connected so all panels still receive data.
-    if (this.compressorNode) {
-      try { this.compressorNode.disconnect(this.ctx.destination); } catch (_) {}
-    }
-    this._tabCaptureMode = true;
-
-    this._micStream = stream;
-    this._micSource = this.ctx.createMediaStreamSource(stream);
-    this._micSource.connect(this.eqLow);
-    this.state = 'playing';
-    this.metadata = { title: 'YOUTUBE · TAB AUDIO', artist: 'LIVE CAPTURE', album: '', picture: null, genres: [] };
-
-    // Stop sharing automatically when the user ends the capture from the browser UI.
-    stream.getAudioTracks()[0].addEventListener('ended', () => this.stopMic());
-  }
 
   tick() {
     if (!this.analyserSpec) return;

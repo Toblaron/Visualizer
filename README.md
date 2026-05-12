@@ -29,18 +29,3 @@ chrome --app=http://localhost:8080
 - Click **LOAD AUDIO** or drag and drop an audio file onto the window
 - Press **?** to see all keyboard shortcuts
 
-## YouTube Music Videos
-
-You can play YouTube videos in the center panel with full visualizer support.
-
-1. Click the **YT** button in the toolbar (or press **Y**)
-2. Paste a YouTube URL and press Enter — the video loads in the center panel
-3. A browser share dialog will appear — this is how the visualizer captures the audio for analysis
-4. Choose **Window** and select your browser window, then tick **"Share system audio"** (or **"Share audio"**), then click Share
-5. All panels (frequency spectrum, waveform, BPM, key, etc.) will react to the video audio in real time
-
-Press **Esc** or click **✕ CLOSE VIDEO** to return to the normal visualizer.
-
-> **No feedback loop:** the captured audio is routed through the analyser only — it is not re-played through your speakers. The YouTube video handles its own playback at normal volume.
-
-> **Tip:** If a "Chrome Tab" option appears in the share dialog, select that and tick "Share tab audio" for the cleanest capture. Otherwise, Window sharing with system audio works fine.
