@@ -503,6 +503,23 @@ function setupTransport() {
     });
   });
 
+  document.getElementById('prev-btn')?.addEventListener('click', (e) => {
+    e.stopPropagation();
+    if (nowPlaying > 0) playlistJump(nowPlaying - 1);
+    else if (playlist.length > 0) playlistJump(0);
+  });
+
+  document.getElementById('next-btn')?.addEventListener('click', (e) => {
+    e.stopPropagation();
+    if (shuffleMode && playlist.length > 1) {
+      let next;
+      do { next = Math.floor(Math.random() * playlist.length); } while (next === nowPlaying);
+      playlistJump(next);
+    } else if (nowPlaying + 1 < playlist.length) {
+      playlistJump(nowPlaying + 1);
+    }
+  });
+
   // MIC button
   document.getElementById('mic-btn')?.addEventListener('click', async (e) => {
     e.stopPropagation();
