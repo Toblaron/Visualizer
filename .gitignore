@@ -1,3 +1,6 @@
+# Editor and tool directories
 .claude/
+
+# Local directories not part of the project
 fuser/
 downloads/
