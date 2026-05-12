@@ -22,3 +22,17 @@ python -m http.server 8080
 
 - Click **LOAD AUDIO** or drag and drop an audio file onto the window
 - Press **?** to see all keyboard shortcuts
+
+## YouTube Music Videos
+
+You can play YouTube videos in the center panel with full visualizer support.
+
+1. Click the **YT** button in the toolbar (or press **Y**)
+2. Paste a YouTube URL and press Enter — the video loads in the center panel
+3. A browser dialog will appear asking you to share your screen/tab — this is how the visualizer reads the audio
+4. Select **Chrome Tab**, choose the current tab, **check "Share tab audio"**, then click Share
+5. All panels (frequency spectrum, waveform, BPM, key, etc.) will react to the video audio in real time
+
+Press **Esc** or click **✕ CLOSE VIDEO** to return to the normal visualizer.
+
+> **Note:** Chrome works best. When sharing, select "Tab" (not Window or Entire Screen) and make sure the "Share tab audio" checkbox is ticked.
