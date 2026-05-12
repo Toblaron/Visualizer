@@ -948,9 +948,14 @@ body {
   flex-direction: column;
 }
 
-#yt-iframe {
+#yt-player-div {
   flex: 1;
+  min-height: 0;
   width: 100%;
+}
+#yt-player-div iframe {
+  width: 100% !important;
+  height: 100% !important;
   border: none;
   display: block;
 }

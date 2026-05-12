@@ -84,6 +84,7 @@ async function playlistJump(index) {
     await _playYouTubeItem(item.videoId);
   } else {
     if (ytActive) _closeYouTubeUI();
+    audio._timeOverride = null;
     histogram.reset();
     await loadFile(item.file);
   }
@@ -270,13 +271,34 @@ function parseYouTubeId(url) {
   return m ? m[1] : null;
 }
 
-// Internal: close YouTube iframe + capture only — does not modify playlist array.
+// YouTube IFrame API loader — resolves when YT global is ready.
+let _ytApiReady = false;
+const _ytApiWaiters = [];
+window.onYouTubeIframeAPIReady = () => {
+  _ytApiReady = true;
+  _ytApiWaiters.splice(0).forEach((r) => r());
+};
+function _waitForYTApi() {
+  if (_ytApiReady) return Promise.resolve();
+  return new Promise((r) => _ytApiWaiters.push(r));
+}
+function _loadYTApiScript() {
+  if (document.getElementById('yt-api-script')) return;
+  const s = Object.assign(document.createElement('script'), {
+    id:  'yt-api-script',
+    src: 'https://www.youtube.com/iframe_api',
+  });
+  document.head.appendChild(s);
+}
+
+let ytPlayer = null;
+
+// Internal: close YouTube player + capture — does not modify playlist array.
 function _closeYouTubeUI() {
-  const wrap   = document.getElementById('yt-wrap');
-  const iframe = document.getElementById('yt-iframe');
-  if (!wrap || !iframe) return;
-  iframe.src = '';
-  wrap.style.display = 'none';
+  if (ytPlayer) { try { ytPlayer.destroy(); } catch (_) {} ytPlayer = null; }
+  audio._timeOverride = null;
+  const wrap = document.getElementById('yt-wrap');
+  if (wrap) wrap.style.display = 'none';
   center.setYouTubeMode(false);
   ytActive = false;
   if (audio.isMicActive()) {
@@ -287,15 +309,15 @@ function _closeYouTubeUI() {
 
 // Internal: play a YouTube video (called by playlistJump).
 async function _playYouTubeItem(videoId) {
-  const wrap   = document.getElementById('yt-wrap');
-  const iframe = document.getElementById('yt-iframe');
-  if (!wrap || !iframe) return;
   if (ytActive) _closeYouTubeUI();
   audio.stop();
-  iframe.src = `https://www.youtube.com/embed/${videoId}?autoplay=1&rel=0`;
-  wrap.style.display = 'flex';
+
+  const wrap = document.getElementById('yt-wrap');
+  if (wrap) wrap.style.display = 'flex';
   center.setYouTubeMode(true);
   ytActive = true;
+
+  // Tab capture needs to happen inside the user-gesture chain — do it first.
   try {
     await audio.startTabCapture();
     document.getElementById('mic-btn')?.classList.add('active');
@@ -303,6 +325,37 @@ async function _playYouTubeItem(videoId) {
   } catch (err) {
     console.info('[yt] Tab audio capture cancelled:', err.message);
   }
+
+  // Create the YouTube IFrame API player for time tracking + seeking.
+  _loadYTApiScript();
+  _waitForYTApi().then(() => {
+    if (!ytActive) return; // user closed the video while API was loading
+    if (ytPlayer) { try { ytPlayer.destroy(); } catch (_) {} ytPlayer = null; }
+    audio._timeOverride = null;
+
+    const div = document.getElementById('yt-player-div');
+    if (!div) return;
+    ytPlayer = new YT.Player(div, {
+      width: '100%',
+      height: '100%',
+      videoId,
+      playerVars: { autoplay: 1, rel: 0, modestbranding: 1 },
+      events: {
+        onReady: () => {
+          audio._timeOverride = {
+            elapsed:  () => { try { return ytPlayer.getCurrentTime() || 0; } catch (_) { return 0; } },
+            duration: () => { try { return ytPlayer.getDuration()  || 0; } catch (_) { return 0; } },
+            seek:     (t) => { try { ytPlayer.seekTo(t, true); } catch (_) {} },
+          };
+        },
+        onStateChange: (e) => {
+          if (typeof YT !== 'undefined' && YT.PlayerState && e.data === YT.PlayerState.ENDED) {
+            onTrackEnded();
+          }
+        },
+      },
+    });
+  });
 }
 
 // User-facing: load from YT overlay — adds to playlist and plays (or queues if ytQueueMode).

@@ -61,6 +61,7 @@ class AudioEngine {
     this._micStream = null;
     this._micSource = null;
     this._tabCaptureMode = false;
+    this._timeOverride = null; // { elapsed(), duration(), seek(t) } set when YouTube player is active
 
     this.freqBuf  = new Uint8Array(FFT_SIZE / 2);
     this.timeBuf  = new Uint8Array(FFT_SIZE);
@@ -247,7 +248,10 @@ class AudioEngine {
   pause()  { if (this.audioEl) this.audioEl.pause(); }
   stop()   { if (!this.audioEl) return; this.audioEl.pause(); try { this.audioEl.currentTime = 0; } catch (_) {} }
   toggle() { if (!this.audioEl || !this.audioEl.src) return; if (this.audioEl.paused) this.play(); else this.audioEl.pause(); }
-  seek(t)  { if (this.audioEl) this.audioEl.currentTime = t; }
+  seek(t)  {
+    if (this._timeOverride?.seek) { this._timeOverride.seek(t); return; }
+    if (this.audioEl) this.audioEl.currentTime = t;
+  }
 
   setVolume(v) { this._userVolume = Math.max(0, Math.min(1, v)); this._muted = false; if (this.gainNode) this.gainNode.gain.value = this._userVolume; }
   getVolume()  { return this._userVolume; }
@@ -256,8 +260,14 @@ class AudioEngine {
   toggleMute() { if (this._muted) this.unmute(); else this.mute(); }
   isMuted()    { return this._muted; }
 
-  getElapsed()  { return this.audioEl ? this.audioEl.currentTime : 0; }
-  getDuration() { return this.audioEl ? (this.audioEl.duration || 0) : 0; }
+  getElapsed()  {
+    if (this._timeOverride?.elapsed) { try { return this._timeOverride.elapsed(); } catch (_) {} }
+    return this.audioEl ? this.audioEl.currentTime : 0;
+  }
+  getDuration() {
+    if (this._timeOverride?.duration) { try { return this._timeOverride.duration(); } catch (_) {} }
+    return this.audioEl ? (this.audioEl.duration || 0) : 0;
+  }
 
   // EQ: gains in dB (±12), applied with 15ms smoothing to avoid clicks
   setEq(low, mid, high) {
