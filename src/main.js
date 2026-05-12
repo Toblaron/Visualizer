@@ -305,6 +305,7 @@ function _closeYouTubeUI() {
     audio.stopMic();
     document.getElementById('mic-btn')?.classList.remove('active');
   }
+  document.getElementById('yt-audio-src-btn')?.classList.remove('active');
 }
 
 // Internal: play a YouTube video (called by playlistJump).
@@ -317,14 +318,7 @@ async function _playYouTubeItem(videoId) {
   center.setYouTubeMode(true);
   ytActive = true;
 
-  // Tab capture needs to happen inside the user-gesture chain — do it first.
-  try {
-    await audio.startTabCapture();
-    document.getElementById('mic-btn')?.classList.add('active');
-    infoBar.onTrackLoaded();
-  } catch (err) {
-    console.info('[yt] Tab audio capture cancelled:', err.message);
-  }
+  // Don't auto-capture — let the user pick their source via the AUDIO SOURCE button.
 
   // Create the YouTube IFrame API player for time tracking + seeking.
   _loadYTApiScript();
@@ -381,6 +375,86 @@ function closeYouTubeVideo() {
   _closeYouTubeUI();
   renderPlaylist();
   updateQueueBadge();
+}
+
+// ── Audio source picker ───────────────────────────────────────────────────────
+function showAudioSrcOverlay() {
+  const overlay = document.getElementById('audio-src-overlay');
+  const list    = document.getElementById('audio-src-list');
+  if (!overlay || !list) return;
+
+  list.innerHTML = '<div style="color:var(--text-dim);font-size:10px;letter-spacing:.1em;padding:8px 0">LOADING DEVICES…</div>';
+  overlay.style.display = '';
+
+  // Request mic permission so browsers expose device labels, then enumerate.
+  navigator.mediaDevices.getUserMedia({ audio: true, video: false })
+    .then((tempStream) => {
+      tempStream.getTracks().forEach((t) => t.stop());
+      return navigator.mediaDevices.enumerateDevices();
+    })
+    .then((devices) => {
+      const inputs = devices.filter((d) => d.kind === 'audioinput');
+      list.innerHTML = '';
+
+      inputs.forEach((dev) => {
+        const row = _audioSrcRow('🎚', dev.label || `Device ${dev.deviceId.slice(0, 6)}`, 'DEVICE INPUT — no sharing bar', async () => {
+          hideAudioSrcOverlay();
+          try {
+            await audio.startFromDevice(dev.deviceId);
+            document.getElementById('mic-btn')?.classList.add('active');
+            document.getElementById('yt-audio-src-btn')?.classList.add('active');
+            infoBar.onTrackLoaded();
+          } catch (err) {
+            alert('Could not open device: ' + err.message);
+          }
+        });
+        list.appendChild(row);
+      });
+
+      // Window/tab capture fallback
+      const capRow = _audioSrcRow('🖥', 'Window / Tab Capture', 'GETDISPLAYMEDIA — sharing bar will appear', async () => {
+        hideAudioSrcOverlay();
+        try {
+          await audio.startTabCapture();
+          document.getElementById('mic-btn')?.classList.add('active');
+          document.getElementById('yt-audio-src-btn')?.classList.add('active');
+          infoBar.onTrackLoaded();
+        } catch (err) {
+          console.info('[yt] capture cancelled:', err.message);
+        }
+      });
+      list.appendChild(capRow);
+    })
+    .catch(() => {
+      list.innerHTML = '<div style="color:var(--magenta);font-size:10px;letter-spacing:.1em;padding:8px 0">MIC PERMISSION DENIED</div>';
+    });
+}
+
+function _audioSrcRow(icon, label, sub, onClick) {
+  const row = document.createElement('div');
+  row.className = 'audio-src-item';
+  row.innerHTML = `<span class="audio-src-item-icon">${icon}</span>
+    <div class="audio-src-item-label">
+      <div>${label}</div>
+      <div class="audio-src-item-sub">${sub}</div>
+    </div>`;
+  row.addEventListener('click', onClick);
+  return row;
+}
+
+function hideAudioSrcOverlay() {
+  const el = document.getElementById('audio-src-overlay');
+  if (el) el.style.display = 'none';
+}
+
+function setupAudioSrcPicker() {
+  document.getElementById('yt-audio-src-btn')?.addEventListener('click', (e) => {
+    e.stopPropagation();
+    showAudioSrcOverlay();
+  });
+  document.getElementById('audio-src-overlay')?.addEventListener('click', (e) => {
+    if (e.target.id === 'audio-src-overlay') hideAudioSrcOverlay();
+  });
 }
 
 function showYtOverlay() {
@@ -597,6 +671,7 @@ function boot() {
   setupTransport();
   setupYouTube();
   setupPlaylist();
+  setupAudioSrcPicker();
   setupKeyboard();
 
   startRaf();

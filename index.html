@@ -109,6 +109,7 @@
       <div id="yt-wrap" style="display:none">
         <button id="yt-close" class="yt-close" type="button">&#x2715; CLOSE VIDEO</button>
         <div id="yt-player-div"></div>
+        <button id="yt-audio-src-btn" class="yt-audio-src-btn" type="button" title="Select audio source for visualization">&#x25CF; AUDIO SOURCE</button>
       </div>
       <span class="center-title">SPECTRAL FIELD</span>
       <span class="center-caption">FFT-DRIVEN PARTICLE RING &nbsp;·&nbsp; RADIUS = BASS &nbsp;·&nbsp; HUE = HIGHS</span>
@@ -205,6 +206,17 @@
       <div class="playlist-ftr">
         <button class="tp-btn" id="playlist-add-yt-btn" type="button">+ YOUTUBE</button>
         <button class="tp-btn" id="playlist-clear-btn" type="button">CLEAR ALL</button>
+      </div>
+    </div>
+
+    <!-- AUDIO SOURCE PICKER OVERLAY -->
+    <div id="audio-src-overlay" class="overlay" style="display:none" role="dialog" aria-modal="true">
+      <div class="overlay-box audio-src-box">
+        <div class="overlay-title">SELECT AUDIO SOURCE</div>
+        <div id="audio-src-list" class="audio-src-list"></div>
+        <div class="overlay-hint">
+          No sharing bar: enable <strong>Stereo Mix</strong> in Windows Sound Settings → Recording → Show Disabled Devices, then select it above.
+        </div>
       </div>
     </div>
 

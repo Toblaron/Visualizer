@@ -329,6 +329,26 @@ class AudioEngine {
 
   isMicActive() { return this._micStream !== null; }
 
+  // Capture from a specific audio input device (e.g. Stereo Mix) — no sharing bar.
+  async startFromDevice(deviceId) {
+    this._ensureContext();
+    if (this._micSource) this.stopMic();
+    if (this.audioEl) this.audioEl.pause();
+    if (this.ctx.state === 'suspended') await this.ctx.resume().catch(() => {});
+    const stream = await navigator.mediaDevices.getUserMedia({
+      audio: { deviceId: { exact: deviceId }, echoCancellation: false, noiseSuppression: false, autoGainControl: false },
+    });
+    this._micStream  = stream;
+    this._micSource  = this.ctx.createMediaStreamSource(stream);
+    this._micSource.connect(this.eqLow);
+    // Silence engine output — source device already plays audio to speakers.
+    if (this.compressorNode) { try { this.compressorNode.disconnect(this.ctx.destination); } catch (_) {} }
+    this._tabCaptureMode = true;
+    this.state    = 'playing';
+    this.metadata = { title: 'YOUTUBE · DEVICE AUDIO', artist: 'LIVE CAPTURE', album: '', picture: null, genres: [] };
+    stream.getAudioTracks()[0].addEventListener('ended', () => this.stopMic());
+  }
+
   // Tab audio capture via getDisplayMedia — call during a user gesture so the browser allows it.
   async startTabCapture() {
     this._ensureContext();
