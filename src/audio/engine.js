@@ -60,6 +60,7 @@ class AudioEngine {
 
     this._micStream = null;
     this._micSource = null;
+    this._tabCaptureMode = false;
 
     this.freqBuf  = new Uint8Array(FFT_SIZE / 2);
     this.timeBuf  = new Uint8Array(FFT_SIZE);
@@ -306,6 +307,13 @@ class AudioEngine {
   stopMic() {
     if (this._micSource) { try { this._micSource.disconnect(); } catch (_) {} this._micSource = null; }
     if (this._micStream) { this._micStream.getTracks().forEach((t) => t.stop()); this._micStream = null; }
+    if (this._tabCaptureMode) {
+      this._tabCaptureMode = false;
+      // Reconnect audio output that was silenced during tab capture.
+      if (this.compressorNode && this.ctx) {
+        try { this.compressorNode.connect(this.ctx.destination); } catch (_) {}
+      }
+    }
     if (this.state === 'playing') this.state = 'paused';
   }
 
@@ -318,18 +326,27 @@ class AudioEngine {
     if (this.audioEl) this.audioEl.pause();
 
     // getDisplayMedia must be called close to the user gesture — do it first.
+    // preferCurrentTab + selfBrowserSurface hint Chrome to pre-select the current tab.
     const stream = await navigator.mediaDevices.getDisplayMedia({
-      video: { width: 1, height: 1, frameRate: 1 },
+      preferCurrentTab: true,
+      video: { selfBrowserSurface: 'include', width: 1, height: 1, frameRate: 1 },
       audio: { echoCancellation: false, noiseSuppression: false, autoGainControl: false },
     });
 
     const audioTracks = stream.getAudioTracks();
     if (audioTracks.length === 0) {
       stream.getTracks().forEach((t) => t.stop());
-      throw new Error('No audio track captured — check "Share tab audio" in the picker.');
+      throw new Error('No audio track captured — tick "Share tab audio" or "Share system audio" in the picker.');
     }
 
     if (this.ctx.state === 'suspended') await this.ctx.resume().catch(() => {});
+
+    // Silence the engine's speaker output — the YouTube iframe already plays the audio.
+    // The analyser chain stays connected so all panels still receive data.
+    if (this.compressorNode) {
+      try { this.compressorNode.disconnect(this.ctx.destination); } catch (_) {}
+    }
+    this._tabCaptureMode = true;
 
     this._micStream = stream;
     this._micSource = this.ctx.createMediaStreamSource(stream);
