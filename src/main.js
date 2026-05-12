@@ -140,7 +140,7 @@ function parseYouTubeId(url) {
   return m ? m[1] : null;
 }
 
-function loadYouTubeVideo(videoId) {
+async function loadYouTubeVideo(videoId) {
   const wrap   = document.getElementById('yt-wrap');
   const iframe = document.getElementById('yt-iframe');
   if (!wrap || !iframe) return;
@@ -148,6 +148,17 @@ function loadYouTubeVideo(videoId) {
   iframe.src = `https://www.youtube.com/embed/${videoId}?autoplay=1&rel=0`;
   wrap.style.display = 'flex';
   center.setYouTubeMode(true);
+
+  // Capture tab audio so all panels react to the YouTube video.
+  // getDisplayMedia must be called within the same user-gesture chain (Enter key).
+  try {
+    await audio.startTabCapture();
+    document.getElementById('mic-btn')?.classList.add('active');
+    infoBar.onTrackLoaded();
+  } catch (err) {
+    // User cancelled the share dialog — video still plays, panels go quiet.
+    console.info('[yt] Tab audio capture cancelled or unavailable:', err.message);
+  }
 }
 
 function closeYouTubeVideo() {
@@ -157,6 +168,10 @@ function closeYouTubeVideo() {
   iframe.src = '';
   wrap.style.display = 'none';
   center.setYouTubeMode(false);
+  if (audio.isMicActive()) {
+    audio.stopMic();
+    document.getElementById('mic-btn')?.classList.remove('active');
+  }
 }
 
 function showYtOverlay() {
@@ -181,14 +196,14 @@ function setupYouTube() {
     if (e.target.id === 'yt-overlay') hideYtOverlay();
   });
 
-  document.getElementById('yt-url-input')?.addEventListener('keydown', (e) => {
+  document.getElementById('yt-url-input')?.addEventListener('keydown', async (e) => {
     if (e.key === 'Enter') {
       e.preventDefault();
       const id = parseYouTubeId(e.target.value.trim());
       if (id) {
         hideYtOverlay();
-        loadYouTubeVideo(id);
         e.target.value = '';
+        await loadYouTubeVideo(id); // await keeps getDisplayMedia inside the user-gesture chain
       } else {
         e.target.style.borderColor = 'var(--magenta)';
         setTimeout(() => { e.target.style.borderColor = ''; }, 900);

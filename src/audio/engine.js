@@ -311,6 +311,36 @@ class AudioEngine {
 
   isMicActive() { return this._micStream !== null; }
 
+  // Tab audio capture via getDisplayMedia — call during a user gesture so the browser allows it.
+  async startTabCapture() {
+    this._ensureContext();
+    if (this._micSource) this.stopMic();
+    if (this.audioEl) this.audioEl.pause();
+
+    // getDisplayMedia must be called close to the user gesture — do it first.
+    const stream = await navigator.mediaDevices.getDisplayMedia({
+      video: { width: 1, height: 1, frameRate: 1 },
+      audio: { echoCancellation: false, noiseSuppression: false, autoGainControl: false },
+    });
+
+    const audioTracks = stream.getAudioTracks();
+    if (audioTracks.length === 0) {
+      stream.getTracks().forEach((t) => t.stop());
+      throw new Error('No audio track captured — check "Share tab audio" in the picker.');
+    }
+
+    if (this.ctx.state === 'suspended') await this.ctx.resume().catch(() => {});
+
+    this._micStream = stream;
+    this._micSource = this.ctx.createMediaStreamSource(stream);
+    this._micSource.connect(this.eqLow);
+    this.state = 'playing';
+    this.metadata = { title: 'YOUTUBE · TAB AUDIO', artist: 'LIVE CAPTURE', album: '', picture: null, genres: [] };
+
+    // Stop sharing automatically when the user ends the capture from the browser UI.
+    stream.getAudioTracks()[0].addEventListener('ended', () => this.stopMic());
+  }
+
   tick() {
     if (!this.analyserSpec) return;
     this.analyserSpec.getByteFrequencyData(this.freqBuf);
