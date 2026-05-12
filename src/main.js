@@ -536,6 +536,11 @@ function setupTransport() {
     }
   });
 
+  document.getElementById('help-btn')?.addEventListener('click', (e) => {
+    e.stopPropagation();
+    showKeyHelp();
+  });
+
   // Key help close
   document.getElementById('key-help')?.addEventListener('click', hideKeyHelp);
 }
