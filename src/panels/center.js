@@ -54,6 +54,9 @@ let prevBeatFloor = 0;
 export let reducedMotion = false;
 export function setReducedMotion(v) { reducedMotion = v; }
 
+let ytMode = false;
+export function setYouTubeMode(on) { ytMode = on; }
+
 const MODE_PARAMS = {
   'AMBIENT PULSE': {
     bass: 0.55, mid: 0.40, high: 0.30, trail: 0.20, ringPow: 1.0,
@@ -132,6 +135,7 @@ function resolveParams(bass, mid, high, now) {
 }
 
 export function render(now) {
+  if (ytMode) return;
   const { ctx, w, h } = sizeCanvas(canvas);
   let bass = 0, mid = 0, high = 0;
   if (audio && audio.getBands) { const b = audio.getBands(); bass = b.bass; mid = b.mid; high = b.high; }

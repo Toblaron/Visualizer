@@ -35,6 +35,7 @@
         <button class="tp-btn" type="button" data-action="pause" title="Pause (Space)">⏸</button>
         <button class="tp-btn" type="button" data-action="stop"  title="Stop">■</button>
         <button class="tp-btn" type="button" id="mic-btn"        title="Microphone input (Alt+M)">MIC</button>
+        <button class="tp-btn" type="button" id="yt-btn"          title="Load YouTube video (Y)">YT</button>
         <div class="rec-indicator" id="rec-indicator" style="display:none">
           <span class="rec-dot"></span><span>REC</span>
         </div>
@@ -104,6 +105,10 @@
     <!-- CENTER REACTIVE FIELD -->
     <section class="panel-center" data-panel="center">
       <canvas class="panel-canvas" data-canvas="center"></canvas>
+      <div id="yt-wrap" style="display:none">
+        <button id="yt-close" class="yt-close" type="button">&#x2715; CLOSE VIDEO</button>
+        <iframe id="yt-iframe" frameborder="0" allow="autoplay; encrypted-media" allowfullscreen></iframe>
+      </div>
       <span class="center-title">SPECTRAL FIELD</span>
       <span class="center-caption">FFT-DRIVEN PARTICLE RING &nbsp;·&nbsp; RADIUS = BASS &nbsp;·&nbsp; HUE = HIGHS</span>
       <span class="data-label data-tl">
@@ -182,6 +187,15 @@
       <span id="loop-b-label" class="loop-label loop-label-b">B</span>
     </div>
 
+    <!-- YOUTUBE URL OVERLAY -->
+    <div id="yt-overlay" class="overlay" style="display:none" role="dialog" aria-modal="true">
+      <div class="overlay-box">
+        <div class="overlay-title">LOAD YOUTUBE VIDEO</div>
+        <input id="yt-url-input" class="yt-url-input" type="text" placeholder="Paste YouTube URL..." autocomplete="off" spellcheck="false" />
+        <div class="overlay-hint">PRESS ENTER TO LOAD &nbsp;·&nbsp; ESC TO CANCEL</div>
+      </div>
+    </div>
+
     <!-- KEYBOARD HELP OVERLAY -->
     <div id="key-help" class="overlay" style="display:none" role="dialog" aria-modal="true">
       <div class="overlay-box">
@@ -199,6 +213,7 @@
           <span class="kb-key">← →</span><span class="kb-desc">Seek ±5 sec</span>
           <span class="kb-key">↑ ↓</span><span class="kb-desc">Volume ±5%</span>
           <span class="kb-key">Alt+M</span><span class="kb-desc">Microphone Input</span>
+          <span class="kb-key">Y</span><span class="kb-desc">Load YouTube Video</span>
           <span class="kb-key">?</span><span class="kb-desc">This Help</span>
           <span class="kb-key">ESC</span><span class="kb-desc">Close Overlay</span>
         </div>

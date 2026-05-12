@@ -13,7 +13,7 @@ const $canvas = (name) => document.querySelector(`canvas[data-canvas="${name}"]`
 const STAGE_TOGGLE_EXCLUDE =
   '.tp-btn, .load-btn, .seek-bar, .volume-bar, .track-progress-bar, .info-btn, ' +
   '#info-track, .info-value.clickable, .info-label.clickable, ' +
-  '.eq-band, #key-help, .overlay';
+  '.eq-band, #key-help, .overlay, #yt-wrap, .yt-close';
 
 // ── Playlist queue ──────────────────────────────────────────────────────────
 let queue = [];
@@ -132,6 +132,77 @@ function saveRecording() {
 function toggleRecording() {
   if (mediaRecorder && mediaRecorder.state !== 'inactive') stopRecording();
   else startRecording();
+}
+
+// ── YouTube ───────────────────────────────────────────────────────────────────
+function parseYouTubeId(url) {
+  const m = url.match(/(?:youtube\.com\/(?:watch\?[^#]*v=|embed\/)|youtu\.be\/)([A-Za-z0-9_-]{11})/);
+  return m ? m[1] : null;
+}
+
+function loadYouTubeVideo(videoId) {
+  const wrap   = document.getElementById('yt-wrap');
+  const iframe = document.getElementById('yt-iframe');
+  if (!wrap || !iframe) return;
+  audio.stop();
+  iframe.src = `https://www.youtube.com/embed/${videoId}?autoplay=1&rel=0`;
+  wrap.style.display = 'flex';
+  center.setYouTubeMode(true);
+}
+
+function closeYouTubeVideo() {
+  const wrap   = document.getElementById('yt-wrap');
+  const iframe = document.getElementById('yt-iframe');
+  if (!wrap || !iframe) return;
+  iframe.src = '';
+  wrap.style.display = 'none';
+  center.setYouTubeMode(false);
+}
+
+function showYtOverlay() {
+  const el = document.getElementById('yt-overlay');
+  if (!el) return;
+  el.style.display = '';
+  setTimeout(() => document.getElementById('yt-url-input')?.focus(), 40);
+}
+
+function hideYtOverlay() {
+  const el = document.getElementById('yt-overlay');
+  if (el) el.style.display = 'none';
+}
+
+function setupYouTube() {
+  document.getElementById('yt-btn')?.addEventListener('click', (e) => {
+    e.stopPropagation();
+    showYtOverlay();
+  });
+
+  document.getElementById('yt-overlay')?.addEventListener('click', (e) => {
+    if (e.target.id === 'yt-overlay') hideYtOverlay();
+  });
+
+  document.getElementById('yt-url-input')?.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      const id = parseYouTubeId(e.target.value.trim());
+      if (id) {
+        hideYtOverlay();
+        loadYouTubeVideo(id);
+        e.target.value = '';
+      } else {
+        e.target.style.borderColor = 'var(--magenta)';
+        setTimeout(() => { e.target.style.borderColor = ''; }, 900);
+      }
+    } else if (e.key === 'Escape') {
+      e.preventDefault();
+      hideYtOverlay();
+    }
+  });
+
+  document.getElementById('yt-close')?.addEventListener('click', (e) => {
+    e.stopPropagation();
+    closeYouTubeVideo();
+  });
 }
 
 // ── Screenshot ───────────────────────────────────────────────────────────────
@@ -299,6 +370,7 @@ function boot() {
   loadSettings();
   setupFileDropZone();
   setupTransport();
+  setupYouTube();
   setupKeyboard();
 
   startRaf();
@@ -400,6 +472,11 @@ function setupTransport() {
 function setupKeyboard() {
   window.addEventListener('keydown', (e) => {
     if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
+    const ytOverlay = document.getElementById('yt-overlay');
+    if (ytOverlay && ytOverlay.style.display !== 'none') {
+      if (e.key === 'Escape') { hideYtOverlay(); e.preventDefault(); }
+      return;
+    }
     const help = document.getElementById('key-help');
     if (help && help.style.display !== 'none') {
       if (e.key === 'Escape') { hideKeyHelp(); e.preventDefault(); }
@@ -478,12 +555,18 @@ function setupKeyboard() {
       case 'L':
         clearLoop();
         break;
+      case 'y':
+      case 'Y':
+        e.preventDefault();
+        showYtOverlay();
+        break;
       case '?':
         e.preventDefault();
         showKeyHelp();
         break;
       case 'Escape':
         hideKeyHelp();
+        closeYouTubeVideo();
         clearLoop();
         break;
     }
